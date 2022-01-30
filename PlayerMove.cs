@@ -1,5 +1,5 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
+using System.Collections.Generic; 
 using System;
 using UnityEngine;
 
@@ -43,10 +43,17 @@ public class PlayerMove : MonoBehaviour
         xInput =  Math.Sign(Input.GetAxisRaw("Horizontal"));
     }
 
-    // Applies a velocity scaled by maxRunSpeed to the player depending on the direction of the input
-    // Increaces the velocity by acceleration until the max velocity is reached
     void FixedUpdate() {
-        rb.velocity = Math.Abs(rb.velocity.x) < Math.Abs(xInput) * maxRunSpeed ? rb.velocity + new Vector2(acceleration * xInput, rb.velocity.y) * Time.deltaTime : new Vector2(xInput * maxRunSpeed, rb.velocity.y);  
+        if(Math.Abs(rb.velocity.x) < Math.Abs(xInput) * maxRunSpeed) {
+            // Increases the velocity by acceleration until the max velocity is reached
+            rb.velocity += new Vector2(acceleration * xInput, rb.velocity.y) * Time.deltaTime;
+        } else if (Math.Abs(rb.velocity.x) > Math.Abs(xInput) * maxRunSpeed) {
+            // Decreases the velocity by deceleration until velocity reaches 0
+            rb.velocity -= new Vector2(deceleration * (rb.velocity.x / Math.Abs(rb.velocity.x)), rb.velocity.x) * Time.deltaTime;
+        } else {
+            // Applies a velocity scaled by maxRunSpeed to the player depending on the direction of the input
+            rb.velocity = new Vector2(xInput * maxRunSpeed, rb.velocity.y);
+        }
     }
 
     void Jump() {
