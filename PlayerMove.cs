@@ -23,12 +23,19 @@ public class PlayerMove : MonoBehaviour
 
     [Space]
     public LayerMask groundLayer;
-    public bool onGround;
+    [SerializeField] bool onGround;
 
     [Space]
-    public Vector2 bottomOffset;
-    public Vector2 boxSize;
+    public Vector2 groundCheckOffset;
+    public Vector2 groundCheckSize;
     public float coyoteTime;
+
+    [Header("Grab")]
+    [SerializeField] bool onWall;
+
+    [Space]
+    public Vector2 wallCheckOffset;
+    public Vector2 wallCheckSize;
 
     void Start() {
         // Gets a reference to the components attatched to the player
@@ -38,6 +45,7 @@ public class PlayerMove : MonoBehaviour
 
     void Update() {
         Jump();
+        Grab();
 
         // Takes input for running and returns a value from 1 (right) to -1 (left)
         xInput =  Math.Sign(Input.GetAxisRaw("Horizontal"));
@@ -45,12 +53,15 @@ public class PlayerMove : MonoBehaviour
 
     void FixedUpdate() {
         if(Math.Abs(rb.velocity.x) < Math.Abs(xInput) * maxRunSpeed) {
+            //Debug.Log("accelerate");
             // Increases the velocity by acceleration until the max velocity is reached
             rb.velocity += new Vector2(acceleration * xInput, rb.velocity.y) * Time.deltaTime;
-        } else if (Math.Abs(rb.velocity.x) > Math.Abs(xInput) * maxRunSpeed) {
+        } /*else if (Math.Abs(rb.velocity.x) > Math.Abs(xInput) * maxRunSpeed) {
+             Debug.Log("decelerate");
             // Decreases the velocity by deceleration until velocity reaches 0
             rb.velocity -= new Vector2(deceleration * (rb.velocity.x / Math.Abs(rb.velocity.x)), rb.velocity.x) * Time.deltaTime;
-        } else {
+        } */ else {
+             //Debug.Log("constant");
             // Applies a velocity scaled by maxRunSpeed to the player depending on the direction of the input
             rb.velocity = new Vector2(xInput * maxRunSpeed, rb.velocity.y);
         }
@@ -60,7 +71,7 @@ public class PlayerMove : MonoBehaviour
         // Checks whether the player is on the ground and if it is, replenishes coyote time, but if not, it starts to tick it down
         coyoteTime = onGround ?  0.1f :  coyoteTime - Time.deltaTime;
         // Draws a box to check whether the player is touching objects on the ground layer
-        onGround = Physics2D.OverlapBox((Vector2)transform.position + bottomOffset, boxSize, 0f, groundLayer);
+        onGround = Physics2D.OverlapBox((Vector2)transform.position + groundCheckOffset, groundCheckSize, 0f, groundLayer);
 
         // Adds an upwards velocity to player when there is still valid coyote time and the jump button is pressed
         if (Input.GetButtonDown("Jump") && coyoteTime > 0) {
@@ -75,9 +86,18 @@ public class PlayerMove : MonoBehaviour
         }
     }
 
+    void Grab() {
+        onWall = (Physics2D.OverlapBox((Vector2)transform.position + wallCheckOffset, wallCheckSize, 0f, groundLayer) || (Physics2D.OverlapBox((Vector2)transform.position + new Vector2(-wallCheckOffset.x, wallCheckOffset.y), wallCheckSize, 0f, groundLayer)));
+        if (Input.GetKey(KeyCode.LeftShift) && onWall) {
+            rb.velocity = new Vector2 (rb.velocity.x, 0);
+        }
+    }
+
     // Draws a red debug box to match the one drawn by the ground check
     void OnDrawGizmos() {
         Gizmos.color = Color.red;
-        Gizmos.DrawWireCube((Vector2)transform.position + bottomOffset, boxSize);
+        Gizmos.DrawWireCube((Vector2)transform.position + groundCheckOffset, groundCheckSize);
+        Gizmos.DrawWireCube((Vector2)transform.position + wallCheckOffset, wallCheckSize);
+        Gizmos.DrawWireCube((Vector2)transform.position + new Vector2(-wallCheckOffset.x, wallCheckOffset.y), wallCheckSize);
     }
 }
