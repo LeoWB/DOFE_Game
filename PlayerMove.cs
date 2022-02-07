@@ -44,8 +44,8 @@ public class PlayerMove : MonoBehaviour
     }
 
     void Update() {
-        Jump();
         Grab();
+        Jump();
 
         // Takes input for running and returns a value from 1 (right) to -1 (left)
         xInput =  Math.Sign(Input.GetAxisRaw("Horizontal"));
@@ -53,15 +53,12 @@ public class PlayerMove : MonoBehaviour
 
     void FixedUpdate() {
         if(Math.Abs(rb.velocity.x) < Math.Abs(xInput) * maxRunSpeed) {
-            //Debug.Log("accelerate");
             // Increases the velocity by acceleration until the max velocity is reached
-            rb.velocity += new Vector2(acceleration * xInput, rb.velocity.y) * Time.deltaTime;
-        } /*else if (Math.Abs(rb.velocity.x) > Math.Abs(xInput) * maxRunSpeed) {
-             Debug.Log("decelerate");
-            // Decreases the velocity by deceleration until velocity reaches 0
-            rb.velocity -= new Vector2(deceleration * (rb.velocity.x / Math.Abs(rb.velocity.x)), rb.velocity.x) * Time.deltaTime;
-        } */ else {
-             //Debug.Log("constant");
+            rb.velocity += new Vector2(acceleration * xInput, 0) * Time.deltaTime;
+        } else if ((Math.Abs(rb.velocity.x) > Math.Abs(xInput) * maxRunSpeed) && xInput == 0) {
+            // Decreases the velocity by deceleration until velocity reaches 0 
+            rb.velocity -= new Vector2(rb.velocity.x / (onGround ? deceleration : deceleration * 3), 0) * Time.deltaTime;
+        } else {
             // Applies a velocity scaled by maxRunSpeed to the player depending on the direction of the input
             rb.velocity = new Vector2(xInput * maxRunSpeed, rb.velocity.y);
         }
@@ -72,7 +69,6 @@ public class PlayerMove : MonoBehaviour
         coyoteTime = onGround ?  0.1f :  coyoteTime - Time.deltaTime;
         // Draws a box to check whether the player is touching objects on the ground layer
         onGround = Physics2D.OverlapBox((Vector2)transform.position + groundCheckOffset, groundCheckSize, 0f, groundLayer);
-
         // Adds an upwards velocity to player when there is still valid coyote time and the jump button is pressed
         if (Input.GetButtonDown("Jump") && coyoteTime > 0) {
             rb.velocity = new Vector2 (rb.velocity.x, jumpHeight);
