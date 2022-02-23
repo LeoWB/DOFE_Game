@@ -19,6 +19,7 @@ public class PlayerMove : MonoBehaviour
     public float jumpHeight;
     public float lowJumpHeight;
     public float fallSpeed;
+    public float increasedFallSpeed;
     public float airControl;
 
     [Space]
@@ -29,13 +30,22 @@ public class PlayerMove : MonoBehaviour
     public Vector2 groundCheckOffset;
     public Vector2 groundCheckSize;
     public float coyoteTime;
+    float coyoteTimeCounter;
+    public float jumpBuffer;
+    float jumpBufferCounter;
 
-    [Header("Grab")]
+    [Header("Wall Movement")]
     [SerializeField] bool onWall;
+    [SerializeField] bool rightFootOnWall;
+    [SerializeField] bool leftFootOnWall;
 
     [Space]
     public Vector2 wallCheckOffset;
+    public Vector2 wallJumpCheckOffset;
     public Vector2 wallCheckSize;
+
+    [Space]
+    public float wallSlideMultiplier;
 
     void Start() {
         // Gets a reference to the components attatched to the player
@@ -46,15 +56,16 @@ public class PlayerMove : MonoBehaviour
     void Update() {
         Grab();
         Jump();
+        WallSlide();
 
         // Takes input for running and returns a value from 1 (right) to -1 (left)
-        xInput =  Math.Sign(Input.GetAxisRaw("Horizontal"));
+        xInput = Convert.ToSingle(Input.GetAxisRaw("Horizontal"));
     }
 
     void FixedUpdate() {
-        if(Math.Abs(rb.velocity.x) < Math.Abs(xInput) * maxRunSpeed) {
+        if (Math.Abs(rb.velocity.x) < Math.Abs(xInput) * maxRunSpeed) {
             // Increases the velocity by acceleration until the max velocity is reached
-            rb.velocity += new Vector2(acceleration * xInput, 0) * Time.deltaTime;
+            rb.velocity += new Vector2((maxRunSpeed * xInput) / acceleration, 0) * Time.deltaTime;
         } else if ((Math.Abs(rb.velocity.x) > Math.Abs(xInput) * maxRunSpeed) && xInput == 0) {
             // Decreases the velocity by deceleration until velocity reaches 0 
             rb.velocity -= new Vector2(rb.velocity.x / (onGround ? deceleration : deceleration * 3), 0) * Time.deltaTime;
@@ -66,34 +77,53 @@ public class PlayerMove : MonoBehaviour
 
     void Jump() {
         // Checks whether the player is on the ground and if it is, replenishes coyote time, but if not, it starts to tick it down
-        coyoteTime = onGround ?  0.1f :  coyoteTime - Time.deltaTime;
-        // Draws a box to check whether the player is touching objects on the ground layer
+        coyoteTimeCounter = onGround ?  coyoteTime :  coyoteTimeCounter - Time.deltaTime;
+        // When player jumps, jump buffer counter is reset, if not, ticks it down slowly
+        jumpBufferCounter = Input.GetButtonDown("Jump") ? jumpBuffer : jumpBufferCounter - Time.deltaTime;
+        // Draws a box to check whether the player is standing on objects on the ground layer
         onGround = Physics2D.OverlapBox((Vector2)transform.position + groundCheckOffset, groundCheckSize, 0f, groundLayer);
-        // Adds an upwards velocity to player when there is still valid coyote time and the jump button is pressed
-        if (Input.GetButtonDown("Jump") && coyoteTime > 0) {
+        // Draws a box to check whether the player is touching a wall 
+        rightFootOnWall = (Physics2D.OverlapBox((Vector2)transform.position + wallJumpCheckOffset, wallCheckSize, 0f, groundLayer));
+        leftFootOnWall = (Physics2D.OverlapBox((Vector2)transform.position + new Vector2(-wallJumpCheckOffset.x, wallJumpCheckOffset.y), wallCheckSize, 0f, groundLayer));
+        // Checks whether the player has recently left a platform (coyote time) or
+        // ... has pressed the jump button just before they land (jump buffer)
+        // If so, sets the y velocity to jumpHeight
+        if (jumpBufferCounter > 0 && coyoteTimeCounter > 0) {
             rb.velocity = new Vector2 (rb.velocity.x, jumpHeight);
+            jumpBufferCounter = 0;
+        } else if ((rightFootOnWall || leftFootOnWall) && Input.GetButtonDown("Jump")) {
+            rb.velocity = new Vector2 (maxRunSpeed * (rightFootOnWall ? -1 : 1), jumpHeight);
         }
         
         // Increases gravity of player when falling down or when the jump button is let go mid-jump
         if (rb.velocity.y < 0 ) {
             rb.velocity += Vector2.up * Physics2D.gravity.y * (fallSpeed - 1) * Time.deltaTime;
-        } else if (rb.velocity.y > 0 && !Input.GetButton("Jump")) {
+        } else if ((rb.velocity.y > 0) && (!Input.GetButton("Jump"))) {
             rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpHeight - 1) * Time.deltaTime;
         }
     }
 
     void Grab() {
+        // Draws a box to check whether the player is touching objects on the ground layer (grabbable layer)
         onWall = (Physics2D.OverlapBox((Vector2)transform.position + wallCheckOffset, wallCheckSize, 0f, groundLayer) || (Physics2D.OverlapBox((Vector2)transform.position + new Vector2(-wallCheckOffset.x, wallCheckOffset.y), wallCheckSize, 0f, groundLayer)));
         if (Input.GetKey(KeyCode.LeftShift) && onWall) {
             rb.velocity = new Vector2 (rb.velocity.x, 0);
         }
     }
 
-    // Draws a red debug box to match the one drawn by the ground check
+    void WallSlide() {
+        if (!(rightFootOnWall || leftFootOnWall)) {return;}
+        if (Math.Sign(rb.velocity.y) == 1) {return;}
+        rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * wallSlideMultiplier);
+    }
+
+    // Draws red debug boxes to help show the boxes detecting walls and ground
     void OnDrawGizmos() {
         Gizmos.color = Color.red;
         Gizmos.DrawWireCube((Vector2)transform.position + groundCheckOffset, groundCheckSize);
         Gizmos.DrawWireCube((Vector2)transform.position + wallCheckOffset, wallCheckSize);
         Gizmos.DrawWireCube((Vector2)transform.position + new Vector2(-wallCheckOffset.x, wallCheckOffset.y), wallCheckSize);
+        Gizmos.DrawWireCube((Vector2)transform.position + wallJumpCheckOffset, wallCheckSize);
+        Gizmos.DrawWireCube((Vector2)transform.position + new Vector2(-wallJumpCheckOffset.x, wallJumpCheckOffset.y), wallCheckSize);
     }
 }
